@@ -154,6 +154,9 @@ dat <- merge(
 ```{r}
 met_lz = lazy_dt(dat, immutable = FALSE)
 ```
+```{r}
+met_lz
+```
 
 ## Question 1: Representative station for the US
 
@@ -228,7 +231,60 @@ Knit the document, commit your changes, and save it on GitHub. Don't forget to a
 Just like the previous question, you are asked to identify what is the most representative, the median, station per state. This time, instead of looking at one variable at a time, look at the euclidean distance. If multiple stations show in the median, select the one located at the lowest latitude.
 
 ```{r}
+met_avg_2 = met_lz %>% 
+  group_by(USAFID) %>%
+  summarise(
+    STATE = STATE,
+    lon = lon,
+    lat = lat,
+    across(
+      c(temp, wind.sp, atm.press),
+      function(x) mean(x, na.rm = TRUE)
+    )
+  )
+    
+state_med = met_avg_2 %>% 
+  group_by(STATE) %>%
+  summarise(
+    across(
+      c(temp, wind.sp, atm.press),
+      function(x) quantile(x, probs = .5, na.rm = TRUE)
+    )
+  )
+# 1 station for 3 variables
+```
+```{r, results = FALSE}
+met_avg_state_med = merge(x=met_avg_2,y=state_med,by="STATE",all.x=TRUE)
 
+```
+
+```{r, results = FALSE}
+met_avg_state_med 
+```
+
+
+```{r, results = FALSE}
+met_avg_state_med = met_avg_state_med %>%
+  mutate(ecl_diff = sqrt((temp.x - temp.y)^2 +(wind.sp.x - wind.sp.y)^2+ (atm.press.x - atm.press.y)^2))
+na.omit(met_avg_state_med)
+```
+
+
+```{r, echo = FALSE}
+state_med_final = met_avg_state_med %>% 
+  group_by(STATE) %>%
+  summarise(ecl_diff = min(ecl_diff, na.rm = TRUE))
+  
+```
+```{r}
+state_med_final
+```
+
+```{r}
+med_by_state = distinct(merge(x=state_med_final,y=met_avg_state_med,by=c("STATE", "ecl_diff") ,all.x=TRUE))
+```
+```{r}
+med_by_state
 ```
 
 Knit the doc and save it on GitHub.
