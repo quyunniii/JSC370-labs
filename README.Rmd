@@ -2,9 +2,7 @@
 title: "Lab 05 - Data Wrangling"
 output: 
   github_document: default
-  tufte::tufte_html:
-    css: style.css
-link-citations: yes
+
 ---
 
 # Learning goals
@@ -89,10 +87,36 @@ Once you are done setting up the project, you can now start working with the MET
 ## Setup in R
 
 1. Load the `data.table` (and the `dtplyr` and `dplyr` packages if you plan to work with those).
-
+```{r}
+library(data.table)
+library(dtplyr)
+library(dplyr)
+```
 2. Load the met data from https://github.com/JSC370/jsc370-2023/blob/main/labs/lab03/met_all.gz or  (Use https://raw.githubusercontent.com/JSC370/jsc370-2023/main/labs/lab03/met_all.gz to download programmatically), and also the station data. For the latter, you can use the code we used during lecture to pre-process the stations data:
 
-```{r stations-data, eval = FALSE}
+```{r}
+met_url <- "https://raw.githubusercontent.com/JSC370/jsc370-2023/main/labs/lab03/met_all.gz"
+# Downloading the data to a tempfile (so it is destroyed afterwards)
+# you can replace this with, for example, your own data:
+# tmp <- tempfile(fileext = ".gz")
+tmp <- "met_all.gz"
+# We sould be downloading this, ONLY IF this was not downloaded already.
+# otherwise is just a waste of time.
+if (!file.exists(tmp)) {
+ download.file(
+ url = met_url,
+ destfile = tmp,
+ method = "libcurl", timeout = 1000
+ )
+}
+dat = fread(tmp)
+
+```
+```{r}
+head(dat)
+```
+
+```{r stations-data}
 # Download the data
 stations <- fread("ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv")
 stations[, USAF := as.integer(USAF)]
@@ -114,14 +138,88 @@ stations <- stations[n == 1,][, n := NULL]
 ```
 
 3. Merge the data as we did during the lecture.
+```{r}
+dat <- merge(
+# Data
+ x = dat,
+ y = stations,
+# List of variables to match
+ by.x = "USAFID",
+ by.y = "USAF",
+# Which obs to keep?
+ all.x = TRUE,
+ all.y = FALSE
+ )
+```
+```{r}
+met_lz = lazy_dt(dat, immutable = FALSE)
+```
 
 ## Question 1: Representative station for the US
 
 Across all weather stations, what is the median station in terms of temperature, wind speed, and atmospheric pressure? Look for the three weather stations that best represent continental US using the `quantile()` function. Do these three coincide?
 
 ```{r}
-
+#avg for each station
+met_avg = met_lz %>% 
+  group_by(USAFID) %>%
+  summarise(
+    across(
+      c(temp, wind.sp, atm.press),
+      function(x) mean(x, na.rm = TRUE)
+    )
+#    temp = mean(temp, na.rm = TRUE),
+#    wind.sp = mean(wind.sp, na.rm = TRUE),
+#    atm.press = mean(atm.press, na.rm = TRUE)
+  )
+  
 ```
+```{r}
+met_med = met_avg %>%
+  summarise(across(
+    2:4,
+    function(x) quantile(x, probs = .5, na.rm = TRUE)
+  ))
+```
+```{r}
+met_med
+```
+```{r}
+met_avg %>%
+  filter(
+    temp == met_med %>% pull(temp) |
+    wind.sp == met_med %>% pull(wind.sp) |
+    atm.press == met_med %>% pull(atm.press)
+  )
+```
+```{r}
+med_temp_id = met_avg %>%
+  mutate(temp_diff = abs(temp - met_med %>% pull(temp))) %>%
+  arrange(temp_diff) %>%
+  slice(1)
+med_windsp_id = met_avg %>%
+  mutate(wind_diff = abs(wind.sp - met_med %>% pull(wind.sp))) %>%
+  arrange(wind_diff) %>%
+  slice(1)
+med_atmp_id = met_avg %>%
+  mutate(atmp_diff = abs(atm.press - met_med %>% pull(atm.press))) %>%
+  arrange(atmp_diff) %>%
+  slice(1)
+```
+```{r}
+med_temp_id
+med_windsp_id 
+med_atmp_id
+```
+```{r}
+distinct(met_lz %>%
+  filter(
+    USAFID  == 725515 |
+    USAFID  == 720929 |
+    USAFID  == 723200 
+  ), USAFID, lat, lon)
+```
+
 
 Knit the document, commit your changes, and save it on GitHub. Don't forget to add `README.md` to the tree, the first time you render it.
 
