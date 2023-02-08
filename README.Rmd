@@ -1,8 +1,9 @@
 ---
 title: "Lab 05 - Data Wrangling"
-output: 
-  github_document: default
-
+output:
+  html_document:
+    html_preview: false
+link-citations: yes
 ---
 
 # Learning goals
@@ -294,7 +295,56 @@ Knit the doc and save it on GitHub.
 For each state, identify what is the station that is closest to the mid-point of the state. Combining these with the stations you identified in the previous question, use `leaflet()` to visualize all ~100 points in the same figure, applying different colors for those identified in this question.
 
 ```{r}
+state_mid_pt = met_avg_2 %>% 
+  group_by(STATE) %>%
+  summarise(
+    avg_lon = mean(lon),
+    avg_lat = mean(lat)
+  )
+```
+```{r}
+cal_state_mid_pt = merge(x=met_avg_2,y=state_mid_pt,by="STATE",all.x=TRUE)
+```
 
+
+```{r}
+cal_state_mid_pt = cal_state_mid_pt %>% mutate(mid_pt_dist = sqrt((lon-avg_lon)^2 + (lat-avg_lat)^2))
+```
+```{r}
+mid_pt_min = cal_state_mid_pt %>% 
+  group_by(STATE) %>%
+  summarise(mid_pt_dist
+ = min(mid_pt_dist, na.rm = TRUE))
+```
+```{r}
+mid_pt_min
+```
+```{r}
+mid_pt_min_by_state = distinct(merge(x=mid_pt_min,y=cal_state_mid_pt,by=c("STATE", "mid_pt_dist") ,all.x=TRUE))
+```
+```{r}
+mid_pt_min_by_state
+```
+
+
+```{r}
+library(leaflet)
+leaflet() %>%
+  addProviderTiles('OpenStreetMap') %>%
+  addCircles(data = mid_pt_min_by_state,
+             lat = ~lat, lng = ~lon, 
+             opacity = 1,
+             fillOpacity = 1,
+             radius = 500,
+             color = "#55dd77") %>%
+  addCircles(data = med_by_state,
+             lat = ~lat, lng = ~lon, 
+             opacity = 1,
+             fillOpacity = 1,
+             radius = 500) 
+#  addMarkers(lat = ~lat, lng = ~lon,
+#             label = ~paste0(round(rh,2), 'rh'),
+#            data = top10) %>%
 ```
 
 Knit the doc and save it on GitHub.
