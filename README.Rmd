@@ -363,9 +363,9 @@ Start by computing the states' average temperature. Use that measurement to clas
 met_avg_2 %>% 
   group_by(STATE) %>%
   summarise(
-    avg_temp = mean(temp, na.rm = TRUE),
-    avg_ws = mean(wind.sp, na.rm = TRUE),
-    avg_atm = mean(atm.press, na.rm = TRUE)
+    avg_temp = quantile(temp, 0.5,na.rm = TRUE),
+    avg_ws = quantile(wind.sp, 0.5,na.rm = TRUE),
+    avg_atm = quantile(atm.press, 0.5,na.rm = TRUE)
   ) %>%
   mutate(avg_temp_lvl = ifelse(avg_temp < 20, "low", ifelse(avg_temp < 25, "mid", "high")))
 ```
@@ -406,5 +406,43 @@ Let's practice running regression models with smooth functions on X. We need the
 - fit both a linear model and a spline model (use `gam()` with a cubic regression spline on wind speed). Summarize and plot the results from the models and interpret which model is the best fit and why.
 
 ```{r}
+library('mgcv')
+library('ggplot2')
+library(tidyverse)
+```
+```{r}
+met_median = met_lz %>% 
+  group_by(USAFID) %>%
+  summarise(
+    STATE = STATE,
+    lon = lon,
+    lat = lat,
+    across(
+      c(temp, wind.sp, atm.press),
+      function(x) quantile(x, 0.5,na.rm = TRUE)
+    )
+  )
+```
+
+```{r}
+df = as.data.frame(distinct(met_median))
+```
+
+```{r}
+df %>%
+  ggplot(aes(x=wind.sp, y=temp)) +
+  geom_point() +
+  geom_smooth(method="auto") +
+  geom_smooth(method="lm")
 
 ```
+```{r}
+model = lm(temp ~ wind.sp, data = met_median)
+summary(model)
+```
+
+```{r}
+gam_model = gam(temp ~ s(wind.sp, bs = "cr", k = 10), data = df)
+plot(gam_model )
+```
+_The spline regression model fits the data better, because the the data doesn't exactly shows a clear trend. The temperature increases and then decreases._
