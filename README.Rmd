@@ -360,7 +360,14 @@ Start by computing the states' average temperature. Use that measurement to clas
 - High: temp >= 25
 
 ```{r}
-
+met_avg_2 %>% 
+  group_by(STATE) %>%
+  summarise(
+    avg_temp = mean(temp, na.rm = TRUE),
+    avg_ws = mean(wind.sp, na.rm = TRUE),
+    avg_atm = mean(atm.press, na.rm = TRUE)
+  ) %>%
+  mutate(avg_temp_lvl = ifelse(avg_temp < 20, "low", ifelse(avg_temp < 25, "mid", "high")))
 ```
 
 Once you are done with that, you can compute the following:
@@ -370,13 +377,23 @@ Once you are done with that, you can compute the following:
 - Number of stations,
 - Number of states included, and
 - Mean temperature, wind-speed, and atmospheric pressure.
-
-All by the levels described before.
-
 ```{r}
-
+met_avg_2
 ```
 
+```{r}
+met_avg_2 %>% 
+  group_by(STATE) %>%
+  summarise(
+    NA_entry = sum(is.na(temp)) + sum(is.na(wind.sp))  + sum(is.na(atm.press)),
+    avg_temp = mean(temp, na.rm = TRUE),
+    avg_ws = mean(wind.sp, na.rm = TRUE),
+    avg_atm = mean(atm.press, na.rm = TRUE)
+  ) %>%
+  mutate(avg_temp_lvl = ifelse(avg_temp < 20, "low", ifelse(avg_temp < 25, "mid", "high")))
+```
+
+All by the levels described before.
 Knit the document, commit your changes, and push them to GitHub. 
 
 
